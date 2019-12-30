@@ -555,10 +555,9 @@ cdef class BestSplitter(BaseDenseSplitter):
                     while True:
                         if is_categorical:
                             cat_idx += 1
+                            if cat_idx >= ncat_present:
+                                break
                             if breiman_shortcut:
-                                if cat_idx >= ncat_present:
-                                    break
-
                                 cat_split = 0
                                 for ui in range(cat_idx):
                                     cat_split = bs_set(cat_split,
@@ -569,9 +568,6 @@ cdef class BestSplitter(BaseDenseSplitter):
                                         cat_split,
                                         self.n_categories[current.feature])
                             else:
-                                if cat_idx >= (<UINT64_t> 1) << (ncat_present - 1):
-                                    break
-
                                 # Expand the bits of (2 * cat_idx) out into
                                 # cat_split. We double cat_idx to avoid
                                 # double-counting equivalent splits. This also
