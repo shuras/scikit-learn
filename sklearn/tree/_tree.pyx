@@ -89,13 +89,13 @@ NODE_DTYPE = np.dtype({
         <Py_ssize_t> &(<Node*> NULL).weighted_n_node_samples
     ]
 })
-"""
+""" 
 
 NODE_DTYPE = np.dtype({
     'names': ['left_child', 'right_child', 'feature', 'threshold',
               'impurity', 'n_node_samples', 'weighted_n_node_samples'],
-    'formats': [np.intp, np.intp, np.intp, np.float64, np.float64,
-                np.intp, np.float64],
+    'formats': [np.intp, np.intp, np.intp, np.float64, 
+                np.float64, np.intp, np.float64],
     'offsets': [
         <Py_ssize_t> &(<Node*> NULL).left_child,
         <Py_ssize_t> &(<Node*> NULL).right_child,
@@ -662,7 +662,11 @@ cdef class Tree:
 
     property threshold:
         def __get__(self):
-            return self._get_node_ndarray()['threshold'][:self.node_count]
+            return self._get_node_ndarray()['threshold'].astype(np.float64, casting='no', copy=False)[:self.node_count]
+
+    property cat_split:
+        def __get__(self):
+            return self._get_node_ndarray()['threshold'].astype(np.unit64, casting='no', copy=False)[:self.node_count]
 
     property impurity:
         def __get__(self):

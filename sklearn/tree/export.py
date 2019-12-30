@@ -803,7 +803,7 @@ def _compute_depth(tree, node):
 
 
 def export_text(decision_tree, feature_names=None, max_depth=10,
-                spacing=3, decimals=2, show_weights=False):
+                spacing=3, decimals=2, show_weights=False, show_branch_value=False, category_encoders={}):
     """Build a text report showing the rules of a decision tree.
 
     Note that backwards compatibility may not be supported.
@@ -832,6 +832,12 @@ def export_text(decision_tree, feature_names=None, max_depth=10,
     show_weights : bool, optional (default=False)
         If true the classification weights will be exported on each leaf.
         The classification weights are the number of samples each class.
+
+    show_branch_value: bool, optional (default=False)
+        If true the value will be shown on non-leaf nodes.
+
+    category_encoders: dict, optional (default={})
+        Maps categorical features (int) to corresponding category encoders (e.g. LabelEncoder)
 
     Returns
     -------
@@ -896,7 +902,7 @@ def export_text(decision_tree, feature_names=None, max_depth=10,
 
     export_text.report = ""
 
-    def _add_leaf(value, class_name, indent):
+    def format_value(value, class_name):
         val = ''
         is_classification = isinstance(decision_tree,
                                        DecisionTreeClassifier)
@@ -905,7 +911,17 @@ def export_text(decision_tree, feature_names=None, max_depth=10,
             val = '['+''.join(val)[:-2]+']'
         if is_classification:
             val += ' class: ' + str(class_name)
+        return val
+
+    def _add_leaf(value, class_name, indent):
+        val = format_value(value, class_name)
         export_text.report += value_fmt.format(indent, '', val)
+
+    def format_category_set(cset: np.uint64, feature: int) -> str:    
+        categories = [i for i in range(64) if (np.uint64(1) << np.uint64(i)) & cset > 0]
+        if feature in category_encoders:
+            categories = category_encoders[feature].inverse_transform(categories)
+        return ', '.join(map(str, categories))
 
     def print_tree_recurse(node, depth):
         indent = ("|" + (" " * spacing)) * depth
@@ -927,23 +943,33 @@ def export_text(decision_tree, feature_names=None, max_depth=10,
             info_fmt_left = info_fmt
             info_fmt_right = info_fmt
 
+            if show_branch_value or tree_.feature[node] == _tree.TREE_UNDEFINED:
+                _add_leaf(value, class_name, indent)
+            
             if tree_.feature[node] != _tree.TREE_UNDEFINED:
+                is_categorical = tree_.n_categories[tree_.feature[node]] > 0
                 name = feature_names_[node]
                 threshold = tree_.threshold[node]
                 threshold = "{1:.{0}f}".format(decimals, threshold)
-                export_text.report += right_child_fmt.format(indent,
-                                                             name,
-                                                             threshold)
+                if is_categorical:
+                    export_text.report += f"{indent} {name} in ({format_category_set(tree_.cat_split[node], tree_.feature[node])})\n"                   
+                else:
+                    export_text.report += right_child_fmt.format(indent,
+                                                                 name,
+                                                                 threshold)
                 export_text.report += info_fmt_left
                 print_tree_recurse(tree_.children_left[node], depth+1)
 
-                export_text.report += left_child_fmt.format(indent,
-                                                            name,
-                                                            threshold)
+                if is_categorical:
+                    export_text.report += f"{indent} {name} not in ({format_category_set(tree_.cat_split[node], tree_.feature[node])})\n"                    
+                else:
+                    export_text.report += left_child_fmt.format(indent,
+                                                                name,
+                                                                threshold)
+                                                            
                 export_text.report += info_fmt_right
                 print_tree_recurse(tree_.children_right[node], depth+1)
-            else:  # leaf
-                _add_leaf(value, class_name, indent)
+            
         else:
             subtree_depth = _compute_depth(tree_, node)
             if subtree_depth == 1:
