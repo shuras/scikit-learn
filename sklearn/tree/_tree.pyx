@@ -662,11 +662,13 @@ cdef class Tree:
 
     property threshold:
         def __get__(self):
-            return self._get_node_ndarray()['threshold'].astype(np.float64, casting='no', copy=False)[:self.node_count]
+            return self._get_node_ndarray()['threshold'][:self.node_count]
 
     property cat_split:
         def __get__(self):
-            return self._get_node_ndarray()['threshold'].astype(np.unit64, casting='no', copy=False)[:self.node_count]
+            a = self._get_node_ndarray()['threshold'][:self.node_count]  # this creates a view
+            a.dtype = np.uint64  # now we can change the type on the view without touching the data
+            return a
 
     property impurity:
         def __get__(self):
